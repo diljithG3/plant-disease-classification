@@ -10,23 +10,27 @@ things currently stand.
 - **Dataset lives outside this project folder, never in version control.** Local:
   `~/plant_disease_dataset` by default (home-dir-relative, resolved via
   `Path.expanduser()` in `src/utils/config.py` — portable to any machine/OS with zero
-  setup), overridable per-machine via the `DATA_ROOT` env var (this dev machine uses
-  it to keep the dataset on `D:\Diljith_A_K\dataset`). Colab: `/content/dataset`
-  (downloaded fresh each session on purpose — Colab runtimes are ephemeral anyway, and
-  local disk beats Drive-mounted I/O for training). Never write dataset files into
-  this project folder, and never hardcode a machine-specific path in `configs/config.yaml`
-  or anywhere in `src/` — that's exactly the bug this design avoids.
-- **Local Python env is a venv kept outside this project folder** (this dev machine:
-  `D:\Diljith_A_K\.venvs\plant_disease`) — no config-driven override exists for this
-  path (unlike the dataset root), it's just wherever each machine chooses to create
-  it. Use that venv's `python`/`pip` for everything local — not any system Python.
-  Registered as Jupyter kernel name `plant_disease` (display name "Plant Disease
-  (venv)").
+  setup), overridable per-machine via the `DATA_ROOT` env var — set via a gitignored
+  `.env` at the project root (loaded by `src/utils/config.py` via `python-dotenv`;
+  template in `.env.example`) rather than exporting it in the shell each session.
+  This dev machine's `.env` sets `DATA_ROOT=C:\Diljith_AK\projects\plant_dataset`, a
+  sibling of the project folder, so the resolved dataset path is
+  `plant_dataset\PlantVillage\color`. Colab: `/content/dataset` (downloaded fresh each
+  session on purpose — Colab runtimes are ephemeral anyway, and local disk beats
+  Drive-mounted I/O for training). Never write dataset files into this project
+  folder, and never hardcode a machine-specific path in `configs/config.yaml` or
+  anywhere in `src/` — that's exactly the bug this design avoids.
+- **Local Python env is a venv at `.venv/` inside this project folder** (gitignored).
+  Use that venv's `python`/`pip` for everything local — not any system Python. No
+  config-driven override exists for this path (unlike the dataset root), it's just
+  wherever each machine chooses to create it — substitute your own if it lives
+  elsewhere. Registered as Jupyter kernel name `plant_disease` (display name "Plant
+  Disease (venv)").
 - **All paths are config-driven.** `configs/config.yaml` + `src/utils/config.py` +
   `src/utils/env.py` resolve local-vs-Colab paths automatically via `load_config()`.
   Never hardcode an absolute, machine-specific path (`/home/...`, `D:\...`,
   `/content/...`) in new code — use `load_config()` or the `DATA_ROOT`/`RUN_ENV` env
-  vars instead.
+  vars (directly, or via the gitignored `.env` file) instead.
 - **Uses git/GitHub, not Drive sync, for code distribution.** Colab is pull-only
   (`git clone`/`git pull`, no push credentials in Colab) — see README's "Version
   control" section for the full workflow and why (Drive sync silently corrupted files
@@ -43,7 +47,7 @@ things currently stand.
 ## Commands
 
 ```powershell
-$VENV = "D:\Diljith_A_K\.venvs\plant_disease\Scripts"   # this machine's venv path -- adjust for yours
+$VENV = ".venv\Scripts"   # this machine's venv path (inside the project folder) -- adjust for yours
 
 # Verify config resolution (prints resolved paths + detected env as JSON)
 & $VENV\python.exe -m src.utils.config

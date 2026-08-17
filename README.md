@@ -25,7 +25,8 @@ Drive sync on purpose, to avoid tracking large binary files):
 
 - **Local**: `~/plant_disease_dataset` by default (resolves under the current user's
   home directory on any machine/OS, no setup needed) -- override with the `DATA_ROOT`
-  environment variable for a custom location (e.g. a specific drive with more space).
+  environment variable (or a `.env` file, see below) for a custom location (e.g. a
+  specific drive with more space).
 - **Colab**: `/content/dataset` (downloaded fresh each session -- Colab runtimes are
   ephemeral anyway, and local disk is much faster than Drive-mounted I/O for training)
 
@@ -33,30 +34,45 @@ Drive sync on purpose, to avoid tracking large binary files):
 detects local vs. Colab), so the same code runs unmodified in both places -- and
 unmodified across machines, since nothing about the path is hardcoded.
 
-## Setup -- local
+### Machine-local overrides via `.env`
 
-A venv's thousands of small package files are bad to sync/version -- so the venv
-lives outside this project folder entirely, on local disk. Unlike the dataset root,
-there's no config-driven override for this path; it's just wherever you choose to
-create it. The commands below use `D:\Diljith_A_K\.venvs\plant_disease` as this
-machine's example -- substitute any local path on yours (e.g.
-`~/.venvs/plant_disease` on Linux/Mac).
+`src/utils/config.py` loads a `.env` file at the project root (if present) before
+resolving paths, via `python-dotenv`. This is the recommended way to set `DATA_ROOT`
+(or force `RUN_ENV`) without exporting shell env vars every session. Copy the
+template and fill in your own path:
 
 ```powershell
-python -m venv D:\Diljith_A_K\.venvs\plant_disease
-D:\Diljith_A_K\.venvs\plant_disease\Scripts\python.exe -m pip install --upgrade pip
+copy .env.example .env
+# then edit .env, e.g.:
+#   DATA_ROOT=C:\path\to\your\dataset\folder
+```
+
+`.env` is gitignored (each machine keeps its own, never committed) -- `.env.example`
+is the tracked template.
+
+## Setup -- local
+
+A venv's thousands of small package files are bad to sync/version, so it's excluded
+from git regardless of location (`.gitignore` covers `.venv/`). This project's venv
+lives at `.venv/` inside the project folder -- substitute any local path on yours if
+you'd rather keep it elsewhere (e.g. `~/.venvs/plant_disease` on Linux/Mac); there's
+no config-driven override for this path, it's just wherever you choose to create it.
+
+```powershell
+python -m venv .venv
+.venv\Scripts\python.exe -m pip install --upgrade pip
 
 cd "path/to/Plant_Disease_Classification_Project"
-D:\Diljith_A_K\.venvs\plant_disease\Scripts\pip.exe install -r requirements.txt
-D:\Diljith_A_K\.venvs\plant_disease\Scripts\pip.exe install torch torchvision --index-url https://download.pytorch.org/whl/cpu
-D:\Diljith_A_K\.venvs\plant_disease\Scripts\python.exe -m src.data.fetch_data
+.venv\Scripts\pip.exe install -r requirements.txt
+.venv\Scripts\pip.exe install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+.venv\Scripts\python.exe -m src.data.fetch_data
 ```
 
 To open notebooks locally (VSCode's Jupyter extension or classic Jupyter), register
 the venv as a kernel once:
 
 ```powershell
-D:\Diljith_A_K\.venvs\plant_disease\Scripts\python.exe -m ipykernel install --user --name plant_disease --display-name "Plant Disease (venv)"
+.venv\Scripts\python.exe -m ipykernel install --user --name plant_disease --display-name "Plant Disease (venv)"
 ```
 
 Then select **"Plant Disease (venv)"** as the notebook's kernel. Already done for

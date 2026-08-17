@@ -28,6 +28,9 @@ __pycache__/
 venv/
 *.egg-info/
 
+# Machine-local env overrides (see .env.example)
+.env
+
 # Jupyter
 .ipynb_checkpoints/
 

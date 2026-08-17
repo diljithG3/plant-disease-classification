@@ -4,6 +4,7 @@
 #          it can overwrite the CUDA-enabled build with a mismatched one.
 
 pyyaml
+python-dotenv
 numpy
 pandas
 matplotlib

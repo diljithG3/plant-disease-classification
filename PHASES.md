@@ -31,9 +31,10 @@ automatically, dataset fetch script, dependency list.
 **Deliverables:** `configs/config.yaml`, `src/utils/env.py`, `src/utils/config.py`,
 `src/data/fetch_data.py`, `requirements.txt`, `.gitignore`, `README.md`.
 
-**Key decisions:** dataset kept outside Drive sync (`D:\Diljith_A_K\dataset` local,
-`/content/dataset` Colab); all paths resolved through config, never hardcoded; no git
-yet.
+**Key decisions:** dataset kept outside Drive sync (`~/plant_disease_dataset` local by
+default, overridable per-machine via `DATA_ROOT`/`.env` -- this dev machine uses
+`C:\Diljith_AK\projects\plant_dataset`; `/content/dataset` Colab); all paths resolved
+through config, never hardcoded; no git yet.
 
 ---
 
