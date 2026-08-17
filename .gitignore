@@ -1,5 +1,10 @@
-# Data & large artifacts -- never versioned, live outside this synced folder anyway
-data/
+# Data & large artifacts -- never versioned, live outside this synced folder anyway.
+# Leading slash anchors this to the project root only -- an unanchored "data/" also
+# matches src/data/ (any dir named "data" at any depth), which silently excluded
+# that entire module (splits.py, transforms.py, dataset.py, ...) from git since the
+# first commit without ever showing up locally, since ignored files don't appear in
+# plain `git status`.
+/data/
 *.jpg
 *.jpeg
 *.png
