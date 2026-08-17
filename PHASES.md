@@ -13,7 +13,7 @@ whenever a phase starts, finishes, or its plan changes.
 | 2 | Data pipeline | Done |
 | 3 | Training/eval harness | Done |
 | 4 | CNN from scratch | Done |
-| 5 | Transfer learning: feature extraction | Not started |
+| 5 | Transfer learning: feature extraction | In progress |
 | 6 | Partial fine-tuning | Not started |
 | 7 | Full fine-tuning | Not started |
 | 8 | Compare all approaches | Not started |
@@ -293,11 +293,46 @@ imbalance-specific handling. Ready for Phase 5.
 
 ## Phase 5 — Transfer learning: feature extraction
 
-**Goal:** pretrained backbone (ResNet or EfficientNet — TBD when we get there),
-frozen entirely, train only a new classifier head. Same harness, same split, same
-metrics as Phase 4.
+**Goal:** pretrained backbone, frozen entirely, train only a new classifier head.
+Same harness, same split, same metrics as Phase 4.
 
-**Status:** Not started.
+**Backbone decision:** ResNet50 (torchvision, `IMAGENET1K_V2` weights) — chosen over
+EfficientNet-B0 for its simpler, more standard block structure (`layer1`-`layer4`),
+which keeps Phase 6's "unfreeze the last N blocks" straightforward to reason about.
+This choice carries forward into Phase 6/7 as well, so all three transfer-learning
+variants stay comparable to each other, not just to Phase 4.
+
+**Status:** In progress — implemented and locally smoke-tested; the real 30-epoch
+run still needs to happen on Colab GPU (local is CPU-only, far too slow for a
+23.6M-parameter backbone over the full 54K-image dataset).
+
+**Deliverables so far:** `src/models/transfer.py`
+(`build_resnet50_feature_extractor`: loads the pretrained ResNet50, freezes every
+backbone parameter, replaces `fc` with a fresh trainable linear head),
+`notebooks/05_feature_extraction.ipynb` (loads Phase 2's fixed split unchanged,
+trains via the unmodified Phase 3 harness, evaluates on the held-out test set,
+compares per-class recall against train-set frequency — same shape as Phase 4's
+baseline section, no iterations planned since Phase 5 is a single well-defined
+configuration).
+
+**Key decisions carried over from Phase 4:** unweighted `CrossEntropyLoss` (matches
+Phase 4's baseline choice, so any accuracy/macro-F1 difference reflects the backbone
+change, not a different imbalance-handling strategy); Adam optimizer, `lr=1e-3`,
+`max_epochs=30`, `early_stopping_patience: 7` on `macro_f1` — identical to every
+Phase 4 run. Optimizer is built over `filter(requires_grad)` so only `fc`'s 77,862
+parameters (of ResNet50's 23,585,894 total) actually train.
+
+**Local smoke test (CPU, 3 train + 2 val images/class subset, 1 epoch):** model
+builds correctly (77,862/23,585,894 trainable params — confirms the backbone is
+fully frozen and only `fc` is trainable), harness trains end-to-end, checkpoint
+round-trip verified exact (`val_macro_f1` matches to <1e-6 on reload into a fresh
+model instance). Plumbing is confirmed correct; these numbers are not meaningful
+results, just a harness check.
+
+**Next step:** run `notebooks/05_feature_extraction.ipynb` on Colab GPU for the real
+30-epoch run, then fill in this section with actual test accuracy/macro-F1,
+per-class recall findings, and the comparison against Phase 4's 98.97%/98.46%
+(`SimpleCNNBatchNormDeep`) result.
 
 ---
 
