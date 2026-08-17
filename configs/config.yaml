@@ -1,0 +1,56 @@
+seed: 42
+
+image_size: 224
+
+data:
+  dataset_name: PlantVillage
+  # which variant of the raw dataset to use: color | grayscale | segmented
+  source: color
+  repo_url: https://github.com/spMohanty/PlantVillage-Dataset.git
+  # data root is resolved at runtime based on detected environment (see src/utils/env.py)
+  # override by setting the DATA_ROOT environment variable
+  root:
+    # ~ expands to the current user's home dir (config.py) -- portable across any
+    # machine/OS/drive with zero setup. Override via DATA_ROOT for a custom location
+    # (e.g. a specific drive with more space) without editing this file.
+    local: ~/plant_disease_dataset
+    colab: /content/dataset
+  # cached split manifest + class_to_idx.json (Phase 2) -- built once, reused by every
+  # later phase so training/eval always sees exactly the same split
+  artifacts_dir: experiments/data
+
+split:
+  train: 0.70
+  val: 0.15
+  test: 0.15
+
+augmentation:
+  horizontal_flip_prob: 0.5
+  rotation_degrees: 15
+  color_jitter:
+    brightness: 0.1
+    contrast: 0.1
+    saturation: 0.1
+
+normalization:
+  # ImageNet stats -- kept fixed across every phase (including the from-scratch CNN)
+  # so preprocessing is never a confound in the Phase 8 comparison, and Phases 5-7
+  # match what their pretrained backbones expect.
+  mean: [0.485, 0.456, 0.406]
+  std: [0.229, 0.224, 0.225]
+
+dataloader:
+  batch_size: 32
+  num_workers: 2
+
+training:
+  # metric used to pick the "best" checkpoint -- macro_f1, not accuracy, because
+  # Phase 1 found a 36x class imbalance that plain accuracy would hide
+  checkpoint_metric: macro_f1
+  early_stopping_patience: 7
+  device: auto   # auto | cpu | cuda
+
+logging:
+  experiments_dir: experiments
+  logs_dir: experiments/logs
+  checkpoints_dir: experiments/checkpoints

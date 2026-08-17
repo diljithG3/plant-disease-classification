@@ -1,0 +1,15 @@
+# Torch/torchvision: install separately.
+# - Local (CPU-only laptop): pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+# - Colab: already preinstalled with CUDA support -- do NOT pip install torch/torchvision there,
+#          it can overwrite the CUDA-enabled build with a mismatched one.
+
+pyyaml
+numpy
+pandas
+matplotlib
+seaborn
+scikit-learn
+tensorboard
+Pillow
+tqdm
+ipykernel   # lets Jupyter/VSCode use this venv as a notebook kernel

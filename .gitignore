@@ -1,0 +1,35 @@
+# Data & large artifacts -- never versioned, live outside this synced folder anyway
+data/
+*.jpg
+*.jpeg
+*.png
+!notebooks/**/*.png
+
+experiments/logs/*
+!experiments/logs/.gitkeep
+# metrics.csv is small, human-readable, and is the raw evidence behind every
+# PHASES.md finding -- worth versioning. TensorBoard event files stay ignored
+# (binary, regenerable from metrics.csv). A file inside an excluded directory can't
+# be re-included directly -- the directory itself must be un-ignored first (so git
+# will traverse into it), then everything inside it re-excluded except the one file.
+!experiments/logs/*/
+experiments/logs/*/*
+!experiments/logs/*/metrics.csv
+experiments/checkpoints/*
+!experiments/checkpoints/.gitkeep
+*.pt
+*.pth
+*.ckpt
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
