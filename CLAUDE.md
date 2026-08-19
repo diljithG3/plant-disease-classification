@@ -44,6 +44,15 @@ things currently stand.
   transfer-learning variants become fairly comparable in Phase 8. Don't fork it
   per-phase.
 
+## Git workflow
+
+- **Never `git commit` or `git push` without asking first, every time.** Approval
+  given earlier in a session (even "yes, push this") does not carry forward to the
+  next change — ask again before each commit/push. This applies regardless of how
+  small or how obviously-correct the change seems, and regardless of how many times
+  in a row the user has said yes before. Staging/diffing locally needs no
+  permission; only the actual commit/push does.
+
 ## Commands
 
 ```powershell
