@@ -14,7 +14,7 @@ whenever a phase starts, finishes, or its plan changes.
 | 3 | Training/eval harness | Done |
 | 4 | CNN from scratch | Done |
 | 5 | Transfer learning: feature extraction | Done |
-| 6 | Partial fine-tuning | Not started |
+| 6 | Partial fine-tuning | In progress |
 | 7 | Full fine-tuning | Not started |
 | 8 | Compare all approaches | Not started |
 | 9 (optional) | Robustness check | Not started |
@@ -367,7 +367,43 @@ ResNet50 backbone, small learning rate, retrain. Ready to start.
 
 **Goal:** unfreeze the last N blocks of the backbone, small learning rate, retrain.
 
-**Status:** Not started.
+**Unfreeze depth decision:** `layer4` only (ResNet50's last of four residual
+blocks) — the conservative starting point. Keeps a clean progression across the
+three transfer-learning phases: Phase 5 froze everything, Phase 7 unfreezes
+everything, so Phase 6 sits in between as "just the last block." `layer1`-`layer3`
+(generic low-level features: edges, textures) stay frozen.
+
+**Status:** In progress — implemented and locally smoke-tested; the real 30-epoch
+run still needs to happen on Colab GPU.
+
+**Deliverables so far:** `src/models/transfer.py` gained
+`build_resnet50_partial_finetune` (same starting point as Phase 5's
+`build_resnet50_feature_extractor`, but leaves `layer4` trainable alongside the
+fresh `fc` head), `notebooks/06_partial_finetune.ipynb` (same shape as Phase 5's
+notebook — loads Phase 2's fixed split, trains via the unmodified Phase 3 harness,
+evaluates on the held-out test set, compares per-class recall against train-set
+frequency).
+
+**Key decision — discriminative learning rate:** the optimizer uses two parameter
+groups instead of Phase 5's single one: `fc` at `lr=1e-3` (same as Phase 5),
+`layer4` at `lr=1e-4` (10x lower). `layer4` already holds useful pretrained
+features; a large gradient from the still-untrained, randomly-initialized head
+early in training would otherwise risk overwriting them before the head has
+learned anything useful to backpropagate. Everything else (loss, `max_epochs=30`,
+`early_stopping_patience: 7`) matches Phase 4/5 unchanged.
+
+**Local smoke test (CPU, 3 train + 2 val images/class subset, 1 epoch):** model
+builds correctly (15,042,598/23,585,894 trainable params, matching `layer4` +
+`fc`'s combined size exactly), an explicit check confirms `layer1`-`layer3` are
+still fully frozen, the two-param-group optimizer works with the harness unchanged,
+checkpoint round-trip verified exact. Plumbing confirmed correct; these numbers are
+not meaningful results, just a harness check.
+
+**Next step:** run `notebooks/06_partial_finetune.ipynb` on Colab GPU for the real
+30-epoch run, then fill in this section with actual test accuracy/macro-F1,
+per-class recall findings (especially whether `Tomato___Early_blight` — the
+chronic weak class in both Phase 4 and Phase 5 — improves), and the comparison
+against Phase 5's 97.88%/97.30% and Phase 4's 98.97%/98.46% results.
 
 ---
 
