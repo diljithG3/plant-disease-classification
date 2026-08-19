@@ -13,7 +13,7 @@ whenever a phase starts, finishes, or its plan changes.
 | 2 | Data pipeline | Done |
 | 3 | Training/eval harness | Done |
 | 4 | CNN from scratch | Done |
-| 5 | Transfer learning: feature extraction | In progress |
+| 5 | Transfer learning: feature extraction | Done |
 | 6 | Partial fine-tuning | Not started |
 | 7 | Full fine-tuning | Not started |
 | 8 | Compare all approaches | Not started |
@@ -302,37 +302,64 @@ which keeps Phase 6's "unfreeze the last N blocks" straightforward to reason abo
 This choice carries forward into Phase 6/7 as well, so all three transfer-learning
 variants stay comparable to each other, not just to Phase 4.
 
-**Status:** In progress — implemented and locally smoke-tested; the real 30-epoch
-run still needs to happen on Colab GPU (local is CPU-only, far too slow for a
-23.6M-parameter backbone over the full 54K-image dataset).
+**Status:** Done — `notebooks/05_feature_extraction.ipynb` (Colab GPU, T4).
 
-**Deliverables so far:** `src/models/transfer.py`
-(`build_resnet50_feature_extractor`: loads the pretrained ResNet50, freezes every
-backbone parameter, replaces `fc` with a fresh trainable linear head),
-`notebooks/05_feature_extraction.ipynb` (loads Phase 2's fixed split unchanged,
-trains via the unmodified Phase 3 harness, evaluates on the held-out test set,
-compares per-class recall against train-set frequency — same shape as Phase 4's
-baseline section, no iterations planned since Phase 5 is a single well-defined
-configuration).
+**Deliverables:** `src/models/transfer.py` (`build_resnet50_feature_extractor`:
+loads the pretrained ResNet50, freezes every backbone parameter, replaces `fc` with
+a fresh trainable linear head), `notebooks/05_feature_extraction.ipynb` (loads Phase
+2's fixed split unchanged, trains via the unmodified Phase 3 harness, evaluates on
+the held-out test set, compares per-class recall against train-set frequency — same
+shape as Phase 4's baseline section; no iterations, since Phase 5 is a single
+well-defined configuration, not an exploration).
 
 **Key decisions carried over from Phase 4:** unweighted `CrossEntropyLoss` (matches
 Phase 4's baseline choice, so any accuracy/macro-F1 difference reflects the backbone
 change, not a different imbalance-handling strategy); Adam optimizer, `lr=1e-3`,
 `max_epochs=30`, `early_stopping_patience: 7` on `macro_f1` — identical to every
 Phase 4 run. Optimizer is built over `filter(requires_grad)` so only `fc`'s 77,862
-parameters (of ResNet50's 23,585,894 total) actually train.
+parameters (of ResNet50's 23,585,894 total — 0.33%) actually train.
 
-**Local smoke test (CPU, 3 train + 2 val images/class subset, 1 epoch):** model
-builds correctly (77,862/23,585,894 trainable params — confirms the backbone is
-fully frozen and only `fc` is trainable), harness trains end-to-end, checkpoint
-round-trip verified exact (`val_macro_f1` matches to <1e-6 on reload into a fresh
-model instance). Plumbing is confirmed correct; these numbers are not meaningful
-results, just a harness check.
+**Local smoke test (CPU, 3 train + 2 val images/class subset, 1 epoch), run before
+the real Colab training:** model builds correctly (77,862/23,585,894 trainable
+params — confirms the backbone is fully frozen and only `fc` is trainable), harness
+trains end-to-end, checkpoint round-trip verified exact (`val_macro_f1` matches to
+<1e-6 on reload into a fresh model instance).
 
-**Next step:** run `notebooks/05_feature_extraction.ipynb` on Colab GPU for the real
-30-epoch run, then fill in this section with actual test accuracy/macro-F1,
-per-class recall findings, and the comparison against Phase 4's 98.97%/98.46%
-(`SimpleCNNBatchNormDeep`) result.
+**Results (Colab T4 GPU, full split, `phase5_resnet50_feature_extraction`, 30
+epochs, unweighted `CrossEntropyLoss`, Adam lr=1e-3):**
+- **Test accuracy 97.88%, test macro-F1 97.30%** (best val macro-F1 during training:
+  0.9742, epoch 23/30 — early stopping came close but never triggered: 6 of the
+  required 7 non-improving epochs elapsed after epoch 23 before hitting the
+  `max_epochs=30` ceiling). ~138 minutes total wall-clock training time (T4 GPU,
+  1188 train batches/epoch) — despite only the 77,862-parameter head being
+  trainable, every batch still needs a full forward pass through the 23.5M-parameter
+  frozen backbone, so this wasn't the fast run a "just training a linear head"
+  framing might suggest.
+- **Beats Phase 4's unweighted baseline (96.82% / 95.91%) by +1.06pp / +1.39pp, but
+  falls short of Phase 4's fully-iterated final result, `SimpleCNNBatchNormDeep`
+  (98.97% / 98.46%), by -1.09pp / -1.16pp.** A frozen ImageNet backbone with only a
+  linear head outperforms an *un-iterated* from-scratch CNN, but a from-scratch CNN
+  that's been deliberately iterated (batchnorm + depth) on this exact dataset still
+  wins outright. Not a surprising result in hindsight — PlantVillage's 38k+ training
+  images give a from-scratch model plenty to learn from directly, and frozen generic
+  ImageNet features (natural-image categories, not leaf-disease textures) aren't
+  necessarily the closest match for this domain. This is exactly the kind of
+  comparison Phase 8 exists to formalize across all four approaches.
+- **`Tomato___Early_blight` is a chronic weak point across every approach so far, not
+  just Phase 4's baseline.** Worst-recall class again (0.820, a *mid-range* 700
+  train images) — same class that was the worst for every Phase 4 variant
+  (baseline 0.767 → BatchNorm 0.853 → BatchNorm+Deep 0.960). Frozen-backbone feature
+  extraction lands between Phase 4's baseline and its fully-iterated result on this
+  specific class, consistent with the overall aggregate ranking above.
+- **Imbalance still doesn't cleanly predict difficulty**, reinforcing Phase 4's
+  finding with an independent architecture: `Potato___healthy` (the smallest class,
+  106 train images) reaches 0.913 recall — not the worst — while
+  `Tomato___Tomato_mosaic_virus` (only 261 train images) reaches a perfect 1.000.
+  Same-species disease confusion, not raw frequency, remains the dominant failure
+  mode.
+
+**Next:** Phase 6 (partial fine-tuning) — unfreeze the last N blocks of this same
+ResNet50 backbone, small learning rate, retrain. Ready to start.
 
 ---
 
