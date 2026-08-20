@@ -14,7 +14,7 @@ whenever a phase starts, finishes, or its plan changes.
 | 3 | Training/eval harness | Done |
 | 4 | CNN from scratch | Done |
 | 5 | Transfer learning: feature extraction | Done |
-| 6 | Partial fine-tuning | In progress |
+| 6 | Partial fine-tuning | Done |
 | 7 | Full fine-tuning | Not started |
 | 8 | Compare all approaches | Not started |
 | 9 (optional) | Robustness check | Not started |
@@ -373,10 +373,9 @@ three transfer-learning phases: Phase 5 froze everything, Phase 7 unfreezes
 everything, so Phase 6 sits in between as "just the last block." `layer1`-`layer3`
 (generic low-level features: edges, textures) stay frozen.
 
-**Status:** In progress — implemented and locally smoke-tested; the real 30-epoch
-run still needs to happen on Colab GPU.
+**Status:** Done — `notebooks/06_partial_finetune.ipynb` (Colab GPU, T4).
 
-**Deliverables so far:** `src/models/transfer.py` gained
+**Deliverables:** `src/models/transfer.py` gained
 `build_resnet50_partial_finetune` (same starting point as Phase 5's
 `build_resnet50_feature_extractor`, but leaves `layer4` trainable alongside the
 fresh `fc` head), `notebooks/06_partial_finetune.ipynb` (same shape as Phase 5's
@@ -392,18 +391,49 @@ early in training would otherwise risk overwriting them before the head has
 learned anything useful to backpropagate. Everything else (loss, `max_epochs=30`,
 `early_stopping_patience: 7`) matches Phase 4/5 unchanged.
 
-**Local smoke test (CPU, 3 train + 2 val images/class subset, 1 epoch):** model
-builds correctly (15,042,598/23,585,894 trainable params, matching `layer4` +
-`fc`'s combined size exactly), an explicit check confirms `layer1`-`layer3` are
-still fully frozen, the two-param-group optimizer works with the harness unchanged,
-checkpoint round-trip verified exact. Plumbing confirmed correct; these numbers are
-not meaningful results, just a harness check.
+**Local smoke test (CPU, 3 train + 2 val images/class subset, 1 epoch), run before
+the real Colab training:** model builds correctly (15,042,598/23,585,894 trainable
+params, matching `layer4` + `fc`'s combined size exactly), an explicit check
+confirms `layer1`-`layer3` are still fully frozen, the two-param-group optimizer
+works with the harness unchanged, checkpoint round-trip verified exact.
 
-**Next step:** run `notebooks/06_partial_finetune.ipynb` on Colab GPU for the real
-30-epoch run, then fill in this section with actual test accuracy/macro-F1,
-per-class recall findings (especially whether `Tomato___Early_blight` — the
-chronic weak class in both Phase 4 and Phase 5 — improves), and the comparison
-against Phase 5's 97.88%/97.30% and Phase 4's 98.97%/98.46% results.
+**Results (Colab T4 GPU, full split, `phase6_resnet50_partial_finetune`,
+unweighted `CrossEntropyLoss`, discriminative Adam lr — `fc` 1e-3, `layer4`
+1e-4):**
+- **Test accuracy 99.68%, test macro-F1 99.36%** — the best result of any phase so
+  far, beating even Phase 4's fully-iterated `SimpleCNNBatchNormDeep` (98.97% /
+  98.46%). Best val macro-F1 0.9974 at epoch 17/30 — **early stopping actually
+  triggered this time** (epoch 24, exactly 7 non-improving epochs after epoch 17),
+  the first phase where it did; Phase 4 and Phase 5 both ran the full 30-epoch
+  ceiling. ~108 minutes total training time (T4 GPU, 25 epochs) — faster overall
+  than Phase 5's 138 minutes/30 epochs despite more trainable parameters per step,
+  simply because it converged and stopped sooner.
+- **Beats every prior approach on both metrics:** vs. Phase 5 (frozen backbone,
+  97.88% / 97.30%): +1.80pp / +2.06pp. vs. Phase 4's iterated CNN (98.97% /
+  98.46%): +0.71pp / +0.90pp. Letting just the last residual block adapt to this
+  dataset's textures, on top of ImageNet's pretrained features, outperforms both
+  "frozen generic features" (Phase 5) and "everything learned from scratch"
+  (Phase 4) — consistent with the standard transfer-learning intuition that a
+  little targeted adaptation on top of strong pretrained features beats either
+  extreme when there's a reasonably large but not huge dataset to fine-tune on.
+- **`Tomato___Early_blight` — the chronic weak class in both Phase 4 and Phase
+  5 — is resolved.** Recall jumped to 0.993, no longer near the bottom of the
+  per-class ranking at all. Unfreezing `layer4` let the network adapt its
+  higher-level features to the specific textures distinguishing this disease,
+  something Phase 5's frozen generic ImageNet features apparently couldn't do.
+- **A new worst class emerged instead: `Corn_(maize)___Northern_Leaf_Blight`**
+  (recall 0.939, 690 train images) — notably the same class Phase 4's BatchNorm
+  iteration had *damaged* (0.946 → 0.816) as a side effect of fixing a different
+  class's confusion, before partially recovering in the deep variant (→0.918).
+  This class's difficulty looks architecture-independent rather than tied to any
+  one approach's specific weakness — likely genuine visual similarity to
+  `Corn_(maize)___Cercospora_leaf_spot Gray_leaf_spot` (the class Phase 4 found it
+  swapped confusion with), a real property of the data Phase 8 should keep in mind.
+- **Imbalance still doesn't predict difficulty:** `Potato___healthy` (the
+  smallest class, 106 train images) reaches a perfect 1.000 recall.
+
+**Next:** Phase 7 (full fine-tuning) — unfreeze the entire ResNet50 backbone, very
+low learning rate. Ready to start.
 
 ---
 
