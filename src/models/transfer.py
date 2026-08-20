@@ -20,6 +20,19 @@ def build_resnet50_feature_extractor(num_classes: int) -> nn.Module:
     return model
 
 
+def build_resnet50_full_finetune(num_classes: int) -> nn.Module:
+    """Phase 7: every parameter is trainable, including the entire pretrained
+    backbone (not just layer4, per Phase 6) -- the least conservative of the three
+    transfer-learning variants, so it needs the lowest backbone learning rate of
+    the three (see notebooks/07_full_finetune.ipynb) to avoid wrecking ImageNet's
+    pretrained features before the freshly-initialized `fc` head has learned
+    anything useful to backpropagate. Nothing to freeze here -- every parameter
+    already has requires_grad=True by default."""
+    model = resnet50(weights=ResNet50_Weights.IMAGENET1K_V2)
+    model.fc = nn.Linear(model.fc.in_features, num_classes)
+    return model
+
+
 def build_resnet50_partial_finetune(num_classes: int) -> nn.Module:
     """Phase 6: same starting point as build_resnet50_feature_extractor, except
     layer4 -- the last of ResNet50's four residual blocks -- is left trainable

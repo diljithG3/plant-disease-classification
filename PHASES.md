@@ -15,7 +15,7 @@ whenever a phase starts, finishes, or its plan changes.
 | 4 | CNN from scratch | Done |
 | 5 | Transfer learning: feature extraction | Done |
 | 6 | Partial fine-tuning | Done |
-| 7 | Full fine-tuning | Not started |
+| 7 | Full fine-tuning | In progress |
 | 8 | Compare all approaches | Not started |
 | 9 (optional) | Robustness check | Not started |
 
@@ -442,7 +442,36 @@ low learning rate. Ready to start.
 **Goal:** unfreeze the entire backbone, very low learning rate (typically a lower LR
 on the backbone than the head).
 
-**Status:** Not started.
+**Status:** In progress — implemented and locally smoke-tested; the real 30-epoch
+run still needs to happen on Colab GPU.
+
+**Deliverables so far:** `src/models/transfer.py` gained `build_resnet50_full_finetune`
+(same ResNet50 as Phase 5/6, but every parameter is trainable — nothing frozen),
+`notebooks/07_full_finetune.ipynb` (same shape as Phase 5/6's notebooks — loads
+Phase 2's fixed split, trains via the unmodified Phase 3 harness, evaluates on the
+held-out test set, compares per-class recall against train-set frequency).
+
+**Key decision — discriminative learning rate, continuing Phase 6's pattern:** two
+parameter groups — `fc` at `lr=1e-3` (unchanged since Phase 5), the entire backbone
+at `lr=1e-5` (10x lower than Phase 6's `layer4` rate of `1e-4`), since every
+pretrained layer is moving now, not just the last block, so it needs the most
+conservative rate of the three transfer-learning phases to avoid wrecking
+ImageNet's pretrained features before the freshly-initialized head has learned
+anything useful to backpropagate. Everything else (loss, `max_epochs=30`,
+`early_stopping_patience: 7`) matches every previous phase unchanged.
+
+**Local smoke test (CPU, 3 train + 2 val images/class subset, 1 epoch):** model
+builds correctly (23,585,894/23,585,894 trainable — confirms nothing is frozen),
+two-param-group optimizer split verified to cover every parameter exactly once
+(23,508,032 backbone + 77,862 `fc` = the full total), harness trains end-to-end,
+checkpoint round-trip verified exact. Plumbing confirmed correct; these numbers are
+not meaningful results, just a harness check.
+
+**Next step:** run `notebooks/07_full_finetune.ipynb` on Colab GPU for the real
+30-epoch run, then fill in this section with actual test accuracy/macro-F1,
+per-class recall findings (especially whether `Corn_(maize)___Northern_Leaf_Blight`
+— Phase 6's worst class — remains difficult), and the comparison against Phase 6's
+99.68%/99.36%, Phase 5's 97.88%/97.30%, and Phase 4's 98.97%/98.46% results.
 
 ---
 
