@@ -15,7 +15,7 @@ whenever a phase starts, finishes, or its plan changes.
 | 4 | CNN from scratch | Done |
 | 5 | Transfer learning: feature extraction | Done |
 | 6 | Partial fine-tuning | Done |
-| 7 | Full fine-tuning | In progress |
+| 7 | Full fine-tuning | Done |
 | 8 | Compare all approaches | Not started |
 | 9 (optional) | Robustness check | Not started |
 
@@ -442,10 +442,10 @@ low learning rate. Ready to start.
 **Goal:** unfreeze the entire backbone, very low learning rate (typically a lower LR
 on the backbone than the head).
 
-**Status:** In progress — implemented and locally smoke-tested; the real 30-epoch
-run still needs to happen on Colab GPU.
+**Status:** Done — `notebooks/07_full_finetune.ipynb` (Colab GPU, **L4** — an upgrade
+from Phase 5/6's T4).
 
-**Deliverables so far:** `src/models/transfer.py` gained `build_resnet50_full_finetune`
+**Deliverables:** `src/models/transfer.py` gained `build_resnet50_full_finetune`
 (same ResNet50 as Phase 5/6, but every parameter is trainable — nothing frozen),
 `notebooks/07_full_finetune.ipynb` (same shape as Phase 5/6's notebooks — loads
 Phase 2's fixed split, trains via the unmodified Phase 3 harness, evaluates on the
@@ -460,18 +460,48 @@ ImageNet's pretrained features before the freshly-initialized head has learned
 anything useful to backpropagate. Everything else (loss, `max_epochs=30`,
 `early_stopping_patience: 7`) matches every previous phase unchanged.
 
-**Local smoke test (CPU, 3 train + 2 val images/class subset, 1 epoch):** model
-builds correctly (23,585,894/23,585,894 trainable — confirms nothing is frozen),
-two-param-group optimizer split verified to cover every parameter exactly once
-(23,508,032 backbone + 77,862 `fc` = the full total), harness trains end-to-end,
-checkpoint round-trip verified exact. Plumbing confirmed correct; these numbers are
-not meaningful results, just a harness check.
+**Local smoke test (CPU, 3 train + 2 val images/class subset, 1 epoch), run before
+the real Colab training:** model builds correctly (23,585,894/23,585,894 trainable
+— confirms nothing is frozen), two-param-group optimizer split verified to cover
+every parameter exactly once (23,508,032 backbone + 77,862 `fc` = the full total),
+harness trains end-to-end, checkpoint round-trip verified exact.
 
-**Next step:** run `notebooks/07_full_finetune.ipynb` on Colab GPU for the real
-30-epoch run, then fill in this section with actual test accuracy/macro-F1,
-per-class recall findings (especially whether `Corn_(maize)___Northern_Leaf_Blight`
-— Phase 6's worst class — remains difficult), and the comparison against Phase 6's
-99.68%/99.36%, Phase 5's 97.88%/97.30%, and Phase 4's 98.97%/98.46% results.
+**Results (Colab L4 GPU, full split, `phase7_resnet50_full_finetune`, unweighted
+`CrossEntropyLoss`, discriminative Adam lr — `fc` 1e-3, backbone 1e-5):**
+- **Test accuracy 99.78%, test macro-F1 99.69% — the best result of any phase,**
+  beating Phase 6 (99.68% / 99.36%) by +0.10pp / +0.33pp. Best val macro-F1 0.9971
+  at epoch 19/30; early stopping triggered at epoch 26 (7 non-improving epochs
+  after epoch 19). ~85 minutes total training time over 27 epochs, averaging 188s/
+  epoch — **faster per epoch than Phase 6's ~257-270s/epoch on a T4**, despite full
+  fine-tuning backpropagating through 23.6M parameters vs. Phase 6's 15.0M. Clean,
+  direct confirmation that the L4 upgrade (used for this run only — Phase 5/6 both
+  ran on T4) is a real, substantial speedup, not just a marginal one.
+- **The full progression across Phase 5-7 is monotonic:** frozen backbone (97.88% /
+  97.30%) → `layer4` unfrozen (99.68% / 99.36%) → entire backbone unfrozen (99.78% /
+  99.69%). Each additional degree of freedom to adapt pretrained features to this
+  dataset improved results further, and this final variant now also beats Phase 4's
+  fully-iterated from-scratch CNN (98.97% / 98.46%) by +0.81pp / +1.23pp — full
+  fine-tuning is the best of all four approaches Phase 8 will compare.
+- **`Tomato___Early_blight` is the worst class again** (recall 0.953, 700 train
+  images) — regressing from Phase 6's 0.993, though still far above Phase 4/5's
+  ~0.77-0.82. Its usual confusion partner in Phase 4's analysis,
+  `Corn_(maize)___Cercospora_leaf_spot Gray_leaf_spot`, is the second-worst here too
+  (0.961). Meanwhile `Corn_(maize)___Northern_Leaf_Blight` — Phase 6's worst class —
+  recovered strongly (0.939 → 0.980). **These two confusion pairs (Early/Late
+  blight, and the two corn diseases) keep trading off across every phase and
+  variant** — BatchNorm helped one and hurt the other in Phase 4, Phase 6 resolved
+  Early_blight but left Northern_Leaf_Blight weak, Phase 7 reverses that exact
+  pattern. This looks like a genuine, persistent property of the data (visually
+  similar diseases within the same species) rather than a fixable artifact of any
+  one architecture or training regime — worth stating plainly in Phase 8 rather
+  than expecting one approach to cleanly "solve" it.
+- **Imbalance still doesn't predict difficulty:** `Potato___healthy` (the smallest
+  class, 106 train images) reaches a perfect 1.000 recall, same as every prior
+  phase.
+
+**Next:** Phase 8 — compare all four approaches (Phase 4's `SimpleCNNBatchNormDeep`,
+Phase 5 feature extraction, Phase 6 partial fine-tune, Phase 7 full fine-tune) on
+the identical held-out test set. All four results are now in hand. Ready to start.
 
 ---
 
